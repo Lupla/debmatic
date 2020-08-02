@@ -7,6 +7,17 @@ fi
 mkdir -p /var/status
 
 rm -f /var/status/startupFinished
+rm -f /var/status/debmatic_*
+rm -f /var/rf_*
+rm -f /var/hm_*
+rm -f /var/hmip_*
+rm -f /var/board_*
+rm -f /var/status/hasInternet
+rm -f /var/status/hasIP
+rm -f /var/status/hasLink
+rm -f /var/*.handlers
+rm -f /var/status/*.connstat
+rm -f /var/SESSIONS.dat
 
 . /usr/share/debmatic/bin/detect_hardware.inc
 
@@ -28,8 +39,6 @@ for file in `ls /etc/config_templates`; do
 done
 mkdir -p /etc/config/addons/www
 
-rm -f /var/status/debmatic_*
-
 \cp -f /etc/config_templates/InterfacesList.xml /etc/config/
 if [ -z "$HM_HOST_RAW_UART" ]; then
   touch /var/status/debmatic_avoid_multimacd
@@ -37,6 +46,10 @@ fi
 
 if [ -z "$HM_HMRF_DEV" ] && [ `egrep -c '^Type = (HMLGW2|Lan Interface)' /etc/config/rfd.conf` == 0 ]; then
   touch /var/status/debmatic_avoid_rfd
+fi
+
+if [ ! -e /etc/config/hs485d.conf ] || [ `egrep -c '^Type = HMWLGW' /etc/config/hs485d.conf` == 0 ]; then
+  touch /var/status/debmatic_avoid_hs485d
 fi
 
 cat > /var/hm_mode << EOF
@@ -91,10 +104,6 @@ echo "${BOARD_SERIAL}" > /var/board_serial
 echo "${FIRMWARE_VERSION}" > /var/rf_firmware_version
 echo "${RF_ADDRESS}" > /var/rf_address
 
-rm -f /var/hmip_*
-rm -f /var/board_sgtin
-rm -f /var/hmip_board_sgtin
-
 if [ -n ${HM_HMIP_SERIAL} ]; then
   echo "${HM_HMIP_SERIAL}" > /var/hmip_board_serial
   echo "${HM_HMIP_VERSION}" > /var/hmip_firmware_version
@@ -131,44 +140,15 @@ if [ -e /etc/config/hs485d.conf ]; then
 fi
 sed -i -e 's/:2001/:32001/' -e 's/:9292/:39292/' -e 's/:2010/:32010/' /etc/config/InterfacesList.xml
 
-rm -f /var/status/hasInternet
-rm -f /var/status/hasIP
-rm -f /var/status/hasLink
-
-IFACE=`route -4 -n | grep -E "^0.0.0.0" | head -1 | awk '{print $8}'`
-for i in {1..6}
-do
-  if [ "$(cat /sys/class/net/${IFACE}/carrier)" == "1" ]; then
-    touch /var/status/hasLink
-    break
-  else
-    sleep 2
-  fi
+for i in {1..10}; do
+  for IFACE in `ls /sys/class/net/`; do
+    IFACE=$IFACE /usr/share/debmatic/bin/ifup.sh
+    if [ -e /var/status/hasInternet ]; then
+      break 2
+    fi
+  done
+  sleep 1
 done
-
-for i in {1..6}
-do
-  if [ "$(ip -o -4 addr show ${IFACE} | wc -l)" == "0" ]; then
-    sleep 2
-  else
-    touch /var/status/hasIP
-    break
-  fi
-done
-
-wget -q --spider http://google.com/
-if [[ $? -eq 0 ]]; then
-  touch /var/status/hasInternet
-elif ping -q -W 5 -c 1 google.com >/dev/null 2>/dev/null; then
-  touch /var/status/hasInternet
-fi
-
-ADDR=`ip -o -4 addr show $IFACE | awk '{print $4}'`
-IP=`ipcalc -n -b $ADDR | grep "Address:" | awk '{print $2}'`
-NETMASK=`ipcalc -n -b $ADDR | grep "Netmask:" | awk '{print $2}'`
-GATEWAY=`route -4 -n | grep -E "^0.0.0.0" | head -1 | awk '{print $2}'`
-
-eq3configcmd netconfigcmd -i "$IP" -g "$GATEWAY" -n "$NETMASK" -d1 "" -d2 ""
 
 mkdir -p /media/usb0/measurement
 touch /var/status/hasUSB

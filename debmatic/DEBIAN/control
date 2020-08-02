@@ -3,6 +3,7 @@ Version: {PKG_VERSION}
 Architecture: {PKG_ARCH}
 Maintainer: Alexander Reinert <alex@areinert.de>
 {DEPENDS}
+Recommends: pivccu-modules-dkms
 Conflicts: pivccu, pivccu3
 Section: misc
 Priority: extra

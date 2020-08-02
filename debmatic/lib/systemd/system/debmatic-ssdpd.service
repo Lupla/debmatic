@@ -2,13 +2,15 @@
 Description=debmatic ssdpd
 PartOf=debmatic.service
 After=debmatic.service
-After=network.target
+After=network-online.target
 
 [Service]
 Type=simple
 ExecStart=/bin/ssdpd
 ExecStartPost=/usr/share/debmatic/bin/create_pid_file /var/run/ssdpd.pid /bin/ssdpd
-ExecStopPre=/bin/rm -f /var/run/ssdpd.pid
+ExecStopPost=/bin/rm -f /var/run/ssdpd.pid
+Restart=on-abnormal
+RestartSec=5s
 
 [Install]
 WantedBy=debmatic.service

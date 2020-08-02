@@ -2,10 +2,10 @@
 Description=debmatic hs485d
 PartOf=debmatic.service
 After=debmatic.service
-After=network.target
+After=network-online.target
 Before=debmatic-hmserver.service
 Before=debmatic-rega.service
-ConditionPathExists=/etc/config/hs485d.conf
+ConditionPathExists=!/var/status/debmatic_avoid_hs485d
 
 [Service]
 Type=forking
@@ -14,6 +14,8 @@ EnvironmentFile=/var/hm_mode
 EnvironmentFile=-/etc/config/syslog
 PIDFile=/var/run/hs485dLoader.pid
 ExecStart=/bin/hs485dLoader -l ${LOGLEVEL_HS485D} -dw /etc/config/hs485d.conf
+Restart=on-abnormal
+RestartSec=5s
 
 [Install]
 WantedBy=debmatic.service
